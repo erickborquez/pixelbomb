@@ -1,0 +1,84 @@
+:root{
+    --main-scale: 40px;
+    --line-width: 5px;
+}
+
+*,*:before,*:after{
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+}
+
+.main{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.background {
+    background-color: #e19074;
+    table-layout: fixed;
+    border-spacing: 0;
+}
+
+.background td{ 
+    padding: 0;
+}
+
+.wall{
+    max-height: 40px;
+    background-color: rgb(110, 51, 51);
+}
+
+.actor{
+    position: absolute;
+}
+
+.player{
+    background-color:  #2DC2EE;
+}
+
+.brick {
+    padding: 0;
+    background-color: #7e7970
+}
+
+.lost .player{
+    background-color: #1F687E;
+}
+
+.won .player{
+    background-color: #54D2F8;
+}
+
+.game{
+    position: relative;
+}
+
+.addOn{
+    background-color: #BADA55;
+}
+
+.bomb{
+    background-color:#000;
+}
+
+.explosion{
+    background-color: rgba(226, 88, 34,1);
+}
+
+.explosionRange{
+    background-color: pink;
+}
+
+.moreBombs{
+    background-color: yellow;
+}
+
+.moreSpeed{
+    background-color: blue;
+}
+
+.pushBombs{
+    background-color: rgb(209, 35, 166);
+}
+
