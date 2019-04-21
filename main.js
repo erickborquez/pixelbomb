@@ -120,9 +120,9 @@ Brick.prototype.size = new Vec(1, 1);
 
 powers =
     ['moreBombs',
-        'explosionRange',
-        'moreSpeed',
-        'pushBombs'];
+    'explosionRange',
+    'moreSpeed',
+    'pushBombs'];
 
 class AddOn {
     constructor(pos, basePos, motion, power) {
@@ -427,7 +427,7 @@ Bomb.prototype.update = function (time, state) {
     let speed = this.speed;
     let pos = this.pos;
     //console.log(pos,speed,this.size);
-    let moved = pos.plus(new Vec(speed.x * time / 3, speed.y * time / 3 ));
+    let moved = pos.plus(new Vec(speed.x * time, speed.y * time));
     let touch;
 
     if (this.speed.x < 0 || this.speed.y < 0) {
@@ -436,17 +436,18 @@ Bomb.prototype.update = function (time, state) {
         touch = state.level.touches(moved, this.size, 0);
     }
 
+    let lastX = Math.floor(this.pos.x);
+    let newX = Math.floor(moved.x);
+    let lastY = Math.floor(this.pos.y);
+    let newY = Math.floor(moved.y);
 
     if (!(touch == "wall" || touch == "brick")) {
         pos = moved;
-        let lastX = Math.floor(this.pos.x);
-        let newX = Math.floor(moved.x);
-        let lastY = Math.floor(this.pos.y);
-        let newY = Math.floor(moved.y);
         if (lastX != newX || lastY != newY) {
             newSolids[lastY][lastX] = undefined;
             newSolids[newY][newX] = "bomb";
-
+        } else if (this.isSolid) {
+            newSolids[newY][newX] = "bomb";
         }
     } else {
         speed = new Vec(0, 0);
@@ -492,7 +493,7 @@ Player.prototype.update = function (time, state, keys) {
                 break;
             }
         }
-    } 
+    }
 
     let ySpeed = 0;
 
