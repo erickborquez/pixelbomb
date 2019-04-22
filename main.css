@@ -50,12 +50,15 @@
     background-color: #54D2F8;
 }
 
-.game{
-    position: relative;
+.player.one{
+    background-color: #E52521
+}
+.player.two{
+    background-color: #43B047;
 }
 
-.addOn{
-    background-color: #BADA55;
+.game{
+    position: relative;
 }
 
 .bomb{
@@ -75,7 +78,7 @@
 }
 
 .moreSpeed{
-    background-color: blue;
+    background-color: #1A50BC ;
 }
 
 .pushBombs{

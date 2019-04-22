@@ -6,7 +6,7 @@ const scale = 40,
     maxSpeed = 15,
     arrowKeys = trackKeys(['a', 'd', 'w', 's', 'e', 'i', 'j', 'k', 'l', 'o']),
     bagCd = 1,
-    probability = 10;
+    probability = 4;
 
 
 
@@ -161,7 +161,7 @@ class Bag {
     get type() { return "Bag"; }
 
     static create() {
-        return new Bag({ bombs: 3, bombRange: new Vec(1, 1), maxBombs: 3, speed: 7 }, 0);
+        return new Bag({ bombs: 3, bombRange: new Vec(1, 1), maxBombs: 3, speed: 7, pushBombs: false }, 0);
     }
 }
 
@@ -202,8 +202,6 @@ class Explosion {
 }
 
 Explosion.prototype.size = new Vec(1, 1);
-
-
 
 
 
@@ -265,6 +263,8 @@ function drawActors(actors) {
         let rect;
         if (actor.type == "addOn") {
             rect = elt("div", { class: `actor ${actor.type} ${actor.power}` })
+        } else if (actor.type == "player") {
+            rect = elt("div", { class: `actor ${actor.type} ${(actor.id == 1) ? 'one' : 'two'}` })
         } else {
             rect = elt("div", { class: `actor ${actor.type}` });
         }
@@ -361,23 +361,6 @@ State.prototype.update = function (time, keys) {
             }
         }
     }
-    /*
-    let player = newState.player;
-
-    for (let actor of newState.actors) {
-        if (actor != player && overlap(actor, player)) {
-            newState = actor.collide(newState);
-        }
-        if (actor.delay <= 0) {
-            if (actor.type == "bomb") {
-                newState = actor.explode(newState);
-            }
-            let filtered = newState.actors.filter(item => item != actor);
-            newState = new State(this.level, filtered, newState.status);
-        }
-    }
-    */
-
     return newState;
 }
 
@@ -395,7 +378,7 @@ function overlap(actor1, actor2) {
 
 AddOn.prototype.collide = function (state, player) {
     let bag = player.bag;
-    let { bombs, maxBombs, bombRange, speed } = bag.items;
+    let { bombs, maxBombs, bombRange, speed, pushBombs } = bag.items;
 
     if (this.power == "moreBombs") {
         bombs += 1;
@@ -407,8 +390,17 @@ AddOn.prototype.collide = function (state, player) {
     else if (this.power == "moreSpeed") {
         speed += 1;
     }
+    else if (this.power == "pushBombs") {
+        pushBombs = true;
+    }
 
-    let newBag = new Bag({ bombs: bombs, maxBombs: maxBombs, bombRange: bombRange, speed: speed }, bag.delay);
+    let newBag = new Bag({
+        bombs: bombs,
+        maxBombs: maxBombs,
+        bombRange: bombRange,
+        speed: speed,
+        pushBombs: pushBombs
+    }, bag.delay);
     let newPlayer = new Player(player.pos, speed, newBag, player.id);
     let filtered = state.actors.filter(a => a != this && a != player);
 
@@ -426,6 +418,12 @@ Brick.prototype.collide = function (state) {
 }
 
 Bomb.prototype.collide = function (state) {
+    if (this.isSolid) {
+        filtered = state.actors.filter(actor => actor != this);
+        newBomb = new Bomb(this.pos, this.range, this.delay, this.isSolid, new Vec(0, 0));
+        filtered.push(newBomb);
+        return new State(state.level, filtered, state.status);
+    }
     return state;
 }
 
@@ -497,14 +495,15 @@ Explosion.prototype.update = function (time) {
 }
 
 Player.prototype.update = function (time, state, keys) {
-    let xSpeed = 0;
 
+    let xSpeed = 0;
+    let items = this.bag.items;
     if (this.id == 0) {
-        if (keys.a) xSpeed -= this.bag.items.speed;
-        if (keys.d) xSpeed += this.bag.items.speed;
+        if (keys.a) xSpeed -= items.speed;
+        if (keys.d) xSpeed += items.speed;
     } else if (this.id == 1) {
-        if (keys.j) xSpeed -= this.bag.items.speed;
-        if (keys.l) xSpeed += this.bag.items.speed;
+        if (keys.j) xSpeed -= items.speed;
+        if (keys.l) xSpeed += items.speed;
     }
 
     let pos = this.pos;
@@ -513,7 +512,7 @@ Player.prototype.update = function (time, state, keys) {
 
     if (!movedToX) {
         pos = movedX;
-    } else if (movedToX == "bomb") {
+    } else if (movedToX == "bomb" && items.pushBombs) {
         for (let actor of state.actors) {
             if (actor.type != "bomb") continue;
             if (overlap(
@@ -527,18 +526,18 @@ Player.prototype.update = function (time, state, keys) {
 
     let ySpeed = 0;
     if (this.id == 0) {
-        if (keys.w) ySpeed -= this.bag.items.speed;
-        if (keys.s) ySpeed += this.bag.items.speed;
+        if (keys.w) ySpeed -= items.speed;
+        if (keys.s) ySpeed += items.speed;
     } else if (this.id == 1) {
-        if (keys.i) ySpeed -= this.bag.items.speed;
-        if (keys.k) ySpeed += this.bag.items.speed;
+        if (keys.i) ySpeed -= items.speed;
+        if (keys.k) ySpeed += items.speed;
     }
 
     let movedY = pos.plus(new Vec(0, ySpeed * time));
     let movedToY = state.level.touches(movedY, this.size);
     if (!movedToY) {
         pos = movedY;
-    } else if (movedToY == "bomb") {
+    } else if (movedToY == "bomb" && items.pushBombs) {
         for (let actor of state.actors) {
             if (actor.type != "bomb") continue;
             if (overlap(
@@ -785,7 +784,7 @@ const levelTest = `
 
 const finalLevel = `
 =============
-=@.#######..=
+=@.#######.@=
 =.=#=#=#=#=.=
 =###########=
 =#=#=#=#=#=#=
@@ -797,10 +796,10 @@ const finalLevel = `
 =#=#=#=#=#=#=
 =###########=
 =.=#=#=#=#=.=
-=..#######.=
+=..#######..=
 =============
 `
-levels = [levelTest];
+levels = [finalLevel];
 runGame(levels, DOMDisplay);
 
 console.log(Level.create(levelTest));
