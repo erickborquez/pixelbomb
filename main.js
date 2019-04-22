@@ -1,17 +1,12 @@
 ////// C O N S T A N T S /////
-const scale = 40;
-
-const motionSpeed = 8, motionDist = .07;
-
-const playerSpeed = 7;
-
-const maxSpeed = 15;
-
-const arrowKeys = trackKeys(['a', 'd', 'w', 's', 'e']);
-
-const bagCd = 1;
-
-const probability = 10;
+const scale = 40,
+    motionSpeed = 8,
+    motionDist = .07,
+    playerSpeed = 7,
+    maxSpeed = 15,
+    arrowKeys = trackKeys(['a', 'd', 'w', 's', 'e', 'i', 'j', 'k', 'l', 'o']),
+    bagCd = 1,
+    probability = 10;
 
 
 
@@ -50,8 +45,8 @@ class Level {
         let height = rows.length;
         let width = rows[0].length;
         let startActors = [];
-
         let solidActors = Array(height).fill(undefined).map((_) => Array(width).fill(undefined));
+        let index = 0;
 
         rows = rows.map((row, y) => {
             return row.map((ch, x) => {
@@ -60,6 +55,11 @@ class Level {
                 if (typeof type == "string") return type;
                 if (type == Brick) {
                     solidActors[y][x] = "brick";
+                } else if (type == Player) {
+                    startActors.push(
+                        type.create(new Vec(x, y), index));
+                    index++;
+                    return "empty";
                 }
                 startActors.push(
                     type.create(new Vec(x, y)));
@@ -85,20 +85,25 @@ class State {
     get player() {
         return this.actors.find(a => a.type == "player");
     }
+
+    get allPlayers() {
+        return this.actors.filter(a => a.type == "player");
+    }
 }
 
 
 class Player {
-    constructor(pos, speed, bag) {
+    constructor(pos, speed, bag, id) {
         this.pos = pos;
         this.speed = speed;
         this.bag = bag;
+        this.id = id;
     }
 
     get type() { return "player"; }
 
-    static create(pos) {
-        return new Player(pos.plus(new Vec(.2, .2)), new Vec(0, 0), Bag.create());
+    static create(pos, id) {
+        return new Player(pos.plus(new Vec(.2, .2)), new Vec(0, 0), Bag.create(), id);
     }
 }
 Player.prototype.size = new Vec(.6, .6);
@@ -120,9 +125,9 @@ Brick.prototype.size = new Vec(1, 1);
 
 powers =
     ['moreBombs',
-    'explosionRange',
-    'moreSpeed',
-    'pushBombs'];
+        'explosionRange',
+        'moreSpeed',
+        'pushBombs'];
 
 class AddOn {
     constructor(pos, basePos, motion, power) {
@@ -171,7 +176,7 @@ class Bomb {
 
     get type() { return "bomb"; }
 
-    static create(pos, range = new Vec(5, 5)) {
+    static create(pos, range) {
         return new Bomb(
             pos.plus(new Vec(.1, .1)),
             range,
@@ -285,8 +290,6 @@ DOMDisplay.prototype.syncState = function (state) {
 }
 
 Level.prototype.touches = function (pos, size, direction = 1) {
-
-
     if (direction) {
         let xStart = Math.floor(pos.x);
         let xEnd = Math.ceil(pos.x + size.x);
@@ -332,14 +335,33 @@ State.prototype.update = function (time, keys) {
     let newState = new State(this.level, actors, this.status);
 
     if (newState.status != "playing") return newState;
-    if (keys.e) {
-        newState = newState.player.bag.putBomb(newState);
-    }
 
     for (let bomb of bombs) {
         newState = bomb.update(time, newState);
     }
 
+    let players = newState.allPlayers;
+    for (let player of players) {
+        if (player.id == 0 && keys.e) {
+            newState = player.bag.putBomb(newState, player);
+        } else if (player.id == 1 && keys.o) {
+            newState = player.bag.putBomb(newState, player);
+        }
+
+        for (let actor of newState.actors) {
+            if (actor != player && overlap(actor, player)) {
+                newState = actor.collide(newState, player);
+            }
+            if (actor.delay <= 0) {
+                if (actor.type == "bomb") {
+                    newState = actor.explode(newState);
+                }
+                let filtered = newState.actors.filter(item => item != actor);
+                newState = new State(this.level, filtered, newState.status);
+            }
+        }
+    }
+    /*
     let player = newState.player;
 
     for (let actor of newState.actors) {
@@ -354,6 +376,7 @@ State.prototype.update = function (time, keys) {
             newState = new State(this.level, filtered, newState.status);
         }
     }
+    */
 
     return newState;
 }
@@ -370,8 +393,7 @@ function overlap(actor1, actor2) {
         actor1.pos.y < actor2.pos.y + actor2.size.y;
 }
 
-AddOn.prototype.collide = function (state) {
-    let player = state.player;
+AddOn.prototype.collide = function (state, player) {
     let bag = player.bag;
     let { bombs, maxBombs, bombRange, speed } = bag.items;
 
@@ -387,7 +409,7 @@ AddOn.prototype.collide = function (state) {
     }
 
     let newBag = new Bag({ bombs: bombs, maxBombs: maxBombs, bombRange: bombRange, speed: speed }, bag.delay);
-    let newPlayer = new Player(player.pos, speed, newBag);
+    let newPlayer = new Player(player.pos, speed, newBag, player.id);
     let filtered = state.actors.filter(a => a != this && a != player);
 
     filtered.push(newPlayer);
@@ -395,6 +417,10 @@ AddOn.prototype.collide = function (state) {
     return new State(state.level, filtered, state.status);
 }
 
+
+Player.prototype.collide = function (state) {
+    return state;
+}
 Brick.prototype.collide = function (state) {
     return state;
 }
@@ -426,7 +452,6 @@ Bomb.prototype.update = function (time, state) {
     let level = state.level;
     let speed = this.speed;
     let pos = this.pos;
-    //console.log(pos,speed,this.size);
     let moved = pos.plus(new Vec(speed.x * time, speed.y * time));
     let touch;
 
@@ -452,7 +477,7 @@ Bomb.prototype.update = function (time, state) {
     } else {
         speed = new Vec(0, 0);
     }
-    if (!overlap(this, state.player) && !this.isSolid) {
+    if (state.allPlayers.every(player => !overlap(this, player)) && !this.isSolid) {
         let x = Math.floor(this.pos.x);
         let y = Math.floor(this.pos.y);
         newSolids[y][x] = "bomb";
@@ -472,10 +497,15 @@ Explosion.prototype.update = function (time) {
 }
 
 Player.prototype.update = function (time, state, keys) {
-
     let xSpeed = 0;
-    if (keys.a) xSpeed -= this.bag.items.speed;
-    if (keys.d) xSpeed += this.bag.items.speed;
+
+    if (this.id == 0) {
+        if (keys.a) xSpeed -= this.bag.items.speed;
+        if (keys.d) xSpeed += this.bag.items.speed;
+    } else if (this.id == 1) {
+        if (keys.j) xSpeed -= this.bag.items.speed;
+        if (keys.l) xSpeed += this.bag.items.speed;
+    }
 
     let pos = this.pos;
     let movedX = pos.plus(new Vec(xSpeed * time, 0));
@@ -496,9 +526,13 @@ Player.prototype.update = function (time, state, keys) {
     }
 
     let ySpeed = 0;
-
-    if (keys.w) ySpeed -= this.bag.items.speed;
-    if (keys.s) ySpeed += this.bag.items.speed;
+    if (this.id == 0) {
+        if (keys.w) ySpeed -= this.bag.items.speed;
+        if (keys.s) ySpeed += this.bag.items.speed;
+    } else if (this.id == 1) {
+        if (keys.i) ySpeed -= this.bag.items.speed;
+        if (keys.k) ySpeed += this.bag.items.speed;
+    }
 
     let movedY = pos.plus(new Vec(0, ySpeed * time));
     let movedToY = state.level.touches(movedY, this.size);
@@ -523,7 +557,7 @@ Player.prototype.update = function (time, state, keys) {
     } else {
         bag.delay -= time;
     }
-    return new Player(pos, new Vec(xSpeed, ySpeed), bag);
+    return new Player(pos, new Vec(xSpeed, ySpeed), bag, this.id);
 }
 
 
@@ -548,8 +582,7 @@ Brick.prototype.explode = function (state) {
     return new State(newLevel, filtered, state.status);
 }
 
-Bag.prototype.putBomb = function (state) {
-    let player = state.player;
+Bag.prototype.putBomb = function (state, player) {
     let newActors = state.actors;
     let actualBombs = state.actors.filter(actor => actor.type == 'bomb');
 
@@ -574,7 +607,7 @@ Bag.prototype.putBomb = function (state) {
             let items = this.items;
             items.bombs -= 1;
             let newBag = new Bag(items, bagCd);
-            let newPlayer = new Player(player.pos, player.speed, newBag);
+            let newPlayer = new Player(player.pos, player.speed, newBag, player.id);
             newActors = [...state.actors.filter(actor => actor != player), newPlayer, bomb];
         }
     }
@@ -742,7 +775,7 @@ const levelTest = `
 =.........%..###...=
 =............###...=
 =............#.#...=
-=...........@=.=...=
+=....@......@=.=...=
 =............=.=...=
 =.........#..=.=...=
 =..................=
@@ -764,10 +797,10 @@ const finalLevel = `
 =#=#=#=#=#=#=
 =###########=
 =.=#=#=#=#=.=
-=..#######..=
+=..#######.=
 =============
 `
 levels = [levelTest];
 runGame(levels, DOMDisplay);
 
-console.log(new Level(levelTest));
+console.log(Level.create(levelTest));
