@@ -2,18 +2,18 @@
 
 ## controls:
 Player 1.
-  W- Up
-  S- Down
-  A- Left
-  D- Rigth
-  E- Put Bomb 💣
+  - W Up
+  - S Down
+  - A Left
+  - D Rigth
+  - E Put Bomb 💣
   
 Player 2.
-  I- Up
-  J- Down
-  K- Left
-  L- Rigth
-  O- Put Bomb 💣
+  - I Up
+  - J Down
+  - K Left
+  - L Rigth
+  - O Put Bomb 💣
   
 ## Powers 💪🏻
  
